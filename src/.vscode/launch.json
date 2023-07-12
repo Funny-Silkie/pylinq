@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "TypeCheck",
+            "type": "python",
+            "request": "launch",
+            "module": "mypy",
+            "args": [
+                "-p",
+                "pylinq",
+                "-p",
+                "test"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Test",
+            "type": "python",
+            "request": "launch",
+            "module": "test",
+            "justMyCode": true
+        }
+    ]
+}
