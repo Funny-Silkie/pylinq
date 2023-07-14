@@ -86,3 +86,57 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         """
         from ._sequences import GeneratorSequence
         return GeneratorSequence[T](func, *args)
+
+    # Create
+
+    @classmethod
+    def empty(cls) -> "LinqSequence[T]":
+        """空のシーケンスを取得します。
+
+        Returns:
+            LinqSequence[T]: 空のシーケンス
+        """
+        from ._sequences import EmptySequence
+        return EmptySequence[T]()
+
+    @classmethod
+    def range(cls, start: int, count: int) -> "LinqSequence[int]":
+        """指定した範囲の整数を列挙するシーケンスを生成します。
+
+        Args:
+            start (int): 開始値
+            count (int): 列挙する個数
+
+        Raises:
+            ValueError: countが0未満
+
+        Returns:
+            LinqSequence[int]: 指定した範囲の整数を列挙するシーケンス
+        """
+        from ._sequences import RangeSequence
+        if count < 0:
+            raise ValueError("parameter 'count' must be 0 or positive value")
+        if count == 0:
+            return LinqSequence[int].empty()
+        return RangeSequence(start, count)
+
+    @classmethod
+    def repeat(cls, value: T, count: int) -> "LinqSequence[T]":
+        """単一の値を繰り返し列挙するシーケンスを生成します。
+
+        Args:
+            value (T): 列挙する値
+            count (int): 列挙する個数
+
+        Raises:
+            ValueError: countが0未満
+
+        Returns:
+            LinqSequence[T]: 単一の値を繰り返し列挙するシーケンス
+        """
+        from ._sequences import RepeatSequence
+        if count < 0:
+            raise ValueError("parameter 'count' must be 0 or positive value")
+        if count == 0:
+            return cls.empty()
+        return RepeatSequence(value, count)
