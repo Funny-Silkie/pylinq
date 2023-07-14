@@ -156,6 +156,257 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
             return cls.empty()
         return RepeatSequence(value, count)
 
+    # Get (Multiple values)
+
+    @overload
+    def where(self, match: Callable[[T], bool]) -> "LinqSequence[T]":
+        """要素の絞り込みを行います。
+
+        Args:
+            match (Callable[[T], bool]): 要素に基づく絞り込み関数
+
+        Returns:
+            LinqSequence[T]: 絞り込み後のシーケンス
+        """
+        ...
+
+    @overload
+    def where(self, match: Callable[[T, int], bool]) -> "LinqSequence[T]":
+        """要素の絞り込みを行います。
+
+        Args:
+            match (Callable[[T, int], bool]): 要素とインデックスに基づく絞り込み関数
+
+        Returns:
+            LinqSequence[T]: 絞り込み後のシーケンス
+        """
+        ...
+
+    def where(self, match: Callable[[T], bool] | Callable[[T, int], bool]) -> "LinqSequence[T]":
+        from ._sequences import WhereSequence
+        from ._common import get_parameter_count
+        if get_parameter_count(match) == 1:
+            match1: Callable[[T], bool] = match  # type: ignore
+            return WhereSequence[T](self, lambda x, _: match1(x))
+        match2: Callable[[T, int], bool] = match  # type: ignore
+        return WhereSequence[T](self, match2)
+
+    def of_type(self, target: type[TResult]) -> "LinqSequence[TResult]":
+        """指定した型で絞り込みを行います。
+
+        Args:
+            target (type[TResult]): 絞り込む型
+
+        Returns:
+            LinqSequence[TResult]: 絞り込み後のシーケンス
+        """
+        result: LinqSequence[TResult] = self.where(lambda x: isinstance(x, target))  # type: ignore
+        return result
+
+    def distinct(self) -> "LinqSequence[T]":
+        """一意の要素からなるシーケンスに変換します。
+
+        Returns:
+            LinqSequence[T]: 一意の要素からなるシーケンス
+        """
+        def inner(source: LinqSequence[T]) -> Generator[T, None, None]:
+            already_iterated = set[T]()
+            for current in source:
+                if current in already_iterated:
+                    continue
+                yield current
+                already_iterated.add(current)
+        return self.from_generator(inner, self)
+
+    def distinct_by(self, key_selector: Callable[[T], TKey]) -> "LinqSequence[T]":
+        """一意の要素からなるシーケンスに変換します。
+
+        Args:
+            key_selector (Callable[[T], TKey]): 要素の比較に用いる値を導出する関数
+
+        Returns:
+            LinqSequence[T]: 一意の要素からなるシーケンス
+        """
+        def inner(source: LinqSequence[T], key_selector: Callable[[T], TKey]) -> Generator[T, None, None]:
+            already_iterated = set[TKey]()
+            for current in source:
+                key: TKey = key_selector(current)
+                if key in already_iterated:
+                    continue
+                yield current
+                already_iterated.add(key)
+        return self.from_generator(inner, self, key_selector)
+
+    def skip(self, count: int) -> "LinqSequence[T]":
+        """先頭から指定した要素数をスキップするシーケンスを取得します。
+
+        Args:
+            count (int): スキップする要素数
+
+        Returns:
+            LinqSequence[T]: スキップ後のシーケンス
+        """
+        def inner(source: LinqSequence[T], count: int) -> Generator[T, None, None]:
+            iterator: Iterator[T] = iter(source)
+            try:
+                for _ in range(count):
+                    next(iterator)
+                while True:
+                    yield next(iterator)
+            except StopIteration:
+                return
+
+        return self.from_generator(inner, self, count)
+
+    def skip_last(self, count: int) -> "LinqSequence[T]":
+        """末尾から指定した要素数をスキップするシーケンスを取得します。
+
+        Args:
+            count (int): スキップする要素数
+
+        Returns:
+            LinqSequence[T]: スキップ後のシーケンス
+        """
+        def inner(source: LinqSequence[T], count: int) -> Generator[T, None, None]:
+            elements = source.to_list()
+            yield from LinqSequence.from_iterable(elements).take(len(elements) - count)
+
+        return self.from_generator(inner, self, count)
+
+    @overload
+    def skip_while(self, match: Callable[[T], bool]) -> "LinqSequence[T]":
+        """指定した条件の間要素をスキップするシーケンスを取得します。
+
+        Args:
+            match (Callable[[T], bool]): 要素に基づくスキップの継続条件
+
+        Returns:
+            LinqSequence[T]: スキップ後のシーケンス
+        """
+        ...
+
+    @overload
+    def skip_while(self, match: Callable[[T, int], bool]) -> "LinqSequence[T]":
+        """指定した条件の間要素をスキップするシーケンスを取得します。
+
+        Args:
+            match (Callable[[T, int], bool]): 要素とインデックスに基づくスキップの継続条件
+
+        Returns:
+            LinqSequence[T]: スキップ後のシーケンス
+        """
+        ...
+
+    def skip_while(self, match: Callable[[T], bool] | Callable[[T, int], bool]) -> "LinqSequence[T]":
+        from ._common import get_parameter_count
+
+        def inner(source: LinqSequence[T], match: Callable[[T, int], bool]) -> Generator[T, None, None]:
+            iterator: Iterator[T] = iter(source)
+            try:
+                index: int = 0
+                while True:
+                    current: T = next(iterator)
+                    if not match(current, index):
+                        yield current
+                        break
+                    index += 1
+                while True:
+                    yield next(iterator)
+            except StopIteration:
+                return
+
+        if get_parameter_count(match) == 1:
+            match1: Callable[[T], bool] = match  # type: ignore
+            return self.from_generator(inner, self, lambda x, _: match1(x))
+        match2: Callable[[T, int], bool] = match  # type: ignore
+        return self.from_generator(inner, self, match2)
+
+    def take(self, count: int) -> "LinqSequence[T]":
+        """先頭から指定した個数分要素を取得します。
+
+        Args:
+            count (int): 取得する要素数
+
+        Returns:
+            LinqSequence[T]: 指定した個数分の要素を持つシーケンス
+        """
+        from ._sequences import TakeSequence
+        if count <= 0:
+            return self.empty()
+        return TakeSequence[T](self, count)
+
+    def take_last(self, count: int) -> "LinqSequence[T]":
+        """末尾から指定した個数分要素を取得します。
+
+        Args:
+            count (int): 取得する要素数
+
+        Returns:
+            LinqSequence[T]: 指定した個数分の要素を持つシーケンス
+        """
+        from ._sequences import TakeLastSequence
+        if count <= 0:
+            return self.empty()
+        return TakeLastSequence[T](self, count)
+
+    @overload
+    def take_while(self, match: Callable[[T], bool]) -> "LinqSequence[T]":
+        """指定した条件の間列挙を続けるシーケンスを取得します。
+
+        Args:
+            match (Callable[[T], bool]): 要素に基づく列挙の継続条件
+
+        Returns:
+            LinqSequence[T]: 指定した条件の間列挙を続けるシーケンス
+        """
+        ...
+
+    @overload
+    def take_while(self, match: Callable[[T, int], bool]) -> "LinqSequence[T]":
+        """指定した条件の間列挙を続けるシーケンスを取得します。
+
+        Args:
+            match (Callable[[T, int], bool]): 要素とインデックスに基づく列挙の継続条件
+
+        Returns:
+            LinqSequence[T]: 指定した条件の間列挙を続けるシーケンス
+        """
+        ...
+
+    def take_while(self, match: Callable[[T], bool] | Callable[[T, int], bool]) -> "LinqSequence[T]":
+        from ._common import get_parameter_count
+        from ._sequences import TakeWhileSequence
+
+        if get_parameter_count(match) == 1:
+            match1: Callable[[T], bool] = match  # type: ignore
+            return TakeWhileSequence[T](self, lambda x, _: match1(x))
+        match2: Callable[[T, int], bool] = match  # type: ignore
+        return TakeWhileSequence[T](self, match2)
+
+    def default_if_empty(self, default: T) -> "LinqSequence[T]":
+        """シーケンスが空の場合に既定値を一つ与えるシーケンスを取得します。
+
+        Args:
+            default (T): シーケンスが空の場合の既定値
+
+        Returns:
+            LinqSequence[T]: シーケンスが空の場合に既定値を一つ与えるシーケンス
+        """
+
+        def inner(source: LinqSequence[T], default: T) -> Generator[T, None, None]:
+            iterator: Iterator[T] = iter(source)
+            try:
+                yield next(iterator)
+            except StopIteration:
+                yield default
+            while True:
+                try:
+                    yield next(iterator)
+                except StopIteration:
+                    return
+
+        return self.from_generator(inner, self, default)
+
     # Convert to collection
 
     def to_list(self) -> list[T]:
