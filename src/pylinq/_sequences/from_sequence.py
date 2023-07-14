@@ -1,4 +1,4 @@
-from typing import Callable, Generator, Generic, Iterable, Iterator, Sized
+from typing import Callable, Generator, Generic, Iterable, Iterator, Sized, final
 
 from .. import LinqSequence
 from ..type_variants import *
@@ -45,6 +45,38 @@ class SizedFromSequence(FromSequence[T], Sized, Generic[T]):
 
     def __len__(self) -> int:
         return len(self._source)  # type: ignore
+
+
+@final
+class DictSequence(LinqSequence[tuple[TKey, TValue]], Sized, Generic[TKey, TValue]):
+    """辞書をそのまま持つシーケンスのクラスです。
+    """
+
+    def __init__(self, source: dict[TKey, TValue]) -> None:
+        """DictSequence[TKey, TValue]の新しいインスタンスを初期化します。
+
+        Args:
+            source (dict[TKey, TValue]): 使用する辞書
+        """
+        super().__init__()
+        self.__iterator: Iterator[TKey] | None = None
+        self.__source: dict[TKey, TValue] = source
+
+    def _in_iteration(self) -> bool:
+        return not self.__iterator is None
+
+    def _start_iteration(self) -> None:
+        self.__iterator = iter(self.__source)
+
+    def _stop_iteration(self) -> None:
+        self.__iterator = None
+
+    def _get_next(self) -> tuple[TKey, TValue]:
+        key: TKey = next(self.__iterator)  # type: ignore
+        return (key, self.__source[key])
+
+    def __len__(self) -> int:
+        return len(self.__source)
 
 
 class GeneratorSequence(LinqSequence[T], Generic[T]):

@@ -76,6 +76,19 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         return FromSequence[T](source)
 
     @classmethod
+    def from_dict(cls, source: dict[TKey, TValue]) -> "LinqSequence[tuple[TKey, TValue]]":
+        """辞書からシーケンスを生成します。
+
+        Args:
+            source (dict[TKey, TValue]): 辞書
+
+        Returns:
+            LinqSequence[tuple[TKey, TValue]]: sourceを持つシーケンスのインスタンス
+        """
+        from ._sequences import DictSequence
+        return DictSequence[TKey, TValue](source)
+
+    @classmethod
     def from_generator(cls, func: Callable[*TArgs, Generator[T, None, None]], *args: *TArgs) -> "LinqSequence[T]":  # type: ignore
         """Generatorからシーケンスを生成します。
 
