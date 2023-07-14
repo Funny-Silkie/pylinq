@@ -787,3 +787,163 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
             set[T]: インスタンスの要素を格納する集合の新しいインスタンス
         """
         return set[T](self)
+
+    # Statistics
+
+    @overload
+    def count(self, match: None = None) -> int:
+        """要素の個数を取得します。
+
+        Returns:
+            int: シーケンスの要素数
+        """
+        ...
+
+    @overload
+    def count(self, match: Callable[[T], bool]) -> int:
+        """指定した条件に適合する要素の数を取得します。
+
+        Args:
+            match (Callable[[T], bool]): 検索する要素の条件
+
+        Returns:
+            int: matchに適合する要素の個数
+        """
+        ...
+
+    def count(self, match: Callable[[T], bool] | None = None) -> int:
+        result: int
+        if match is None:
+            if isinstance(self, Sized):
+                return len(self)
+            result = 0
+            for _ in self:
+                result += 1
+            return result
+        result = 0
+        for current in self:
+            if match(current):
+                result += 1
+        return result
+
+    def max_by(self, key_selector: Callable[[T], int | bool | float]) -> T | None:
+        """最大値を取る要素を取得します。
+
+        Args:
+            key_selector (Callable[[T], int  |  bool  |  float]): 要素から値を導出する関数
+
+        Returns:
+            T | None: 最大値を取る要素。シーケンスが空の場合はNone
+        """
+        result: T
+        max: float
+        iterator: Iterator[T] = iter(self)
+        try:
+            result = next(iterator)
+            max = key_selector(result)
+        except StopIteration:
+            return None
+        while True:
+            try:
+                current: T = next(iterator)
+                value: float = key_selector(current)
+                if value > max:
+                    result = current
+                    max = value
+            except StopIteration:
+                return result
+
+    def min_by(self, key_selector: Callable[[T], int | bool | float]) -> T | None:
+        """最小値を取る要素を取得します。
+
+        Args:
+            key_selector (Callable[[T], int  |  bool  |  float]): 要素から値を導出する関数
+
+        Returns:
+            T | None: 最小値を取る要素。シーケンスが空の場合はNone
+        """
+        result: T
+        min: float
+        iterator: Iterator[T] = iter(self)
+        try:
+            result = next(iterator)
+            min = key_selector(result)
+        except StopIteration:
+            return None
+        while True:
+            try:
+                current: T = next(iterator)
+                value: float = key_selector(current)
+                if value < min:
+                    result = current
+                    min = value
+            except StopIteration:
+                return result
+
+    def sum(self, key_selector: Callable[[T], int | bool | float]) -> float:
+        """合計値を算出します。
+
+        Args:
+            key_selector (Callable[[T], int  |  bool  |  float]): 計算する値を導出する関数
+
+        Returns:
+            float: 合計値
+        """
+        result: float = .0
+        for current in self:
+            result += key_selector(current)
+        return result
+
+    def average(self, key_selector: Callable[[T], int | bool | float]) -> float:
+        """平均値を算出します。
+
+        Args:
+            key_selector (Callable[[T], int  |  bool  |  float]): 計算する値を導出する関数
+
+        Returns:
+            float: 平均値
+        """
+        if isinstance(self, Sized):
+            return self.sum(key_selector) / len(self)
+
+        count: int = 0
+        result: float = .0
+        for current in self:
+            result += key_selector(current)
+            count += 0
+        return result / count
+
+    @overload
+    def aggregate(self, seed: TAccumulate, func: Callable[[TAccumulate, T], TAccumulate], result_selector: None = None) -> TAccumulate:
+        """シーケンスにアキュムレート関数を適用します。
+
+        Args:
+            seed (TAccumulate): 初期値
+            func (Callable[[TAccumulate, T], TAccumulate]): 一つ前の結果と要素から値を導出する関数
+
+        Returns:
+            TAccumulate: 累積値
+        """
+        ...
+
+    @overload
+    def aggregate(self, seed: TAccumulate, func: Callable[[TAccumulate, T], TAccumulate], result_selector: Callable[[TAccumulate], TResult]) -> TResult:
+        """シーケンスにアキュムレート関数を適用します。
+
+        Args:
+            seed (TAccumulate): 初期値
+            func (Callable[[TAccumulate, T], TAccumulate]): 一つ前の結果と要素から値を導出する関数
+            result_selector (Callable[[TAccumulate], TResult]): 最終的な値を変換する関数
+
+        Returns:
+            TResult: 累積値
+        """
+        ...
+
+    def aggregate(self, seed: TAccumulate, func: Callable[[TAccumulate, T], TAccumulate], result_selector: Callable[[TAccumulate], TResult] | None = None) -> TAccumulate | TResult:
+        accumulate: TAccumulate = seed
+        for current in self:
+            accumulate = func(accumulate, current)
+        if result_selector is None:
+            return accumulate
+        return result_selector(accumulate)
