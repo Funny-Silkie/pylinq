@@ -155,3 +155,60 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         if count == 0:
             return cls.empty()
         return RepeatSequence(value, count)
+
+    # Convert to collection
+
+    def to_list(self) -> list[T]:
+        """リストに変換します。
+
+        Returns:
+            list[T]: インスタンスの要素を格納するリストの新しいインスタンス
+        """
+        return list[T](self)
+
+    @ overload
+    def to_dict(self, key_selector: Callable[[T], TKey], value_selector: None = None) -> dict[TKey, T]:
+        """辞書に変換します。
+
+        Args:
+            key_selector (Callable[[T], TKey]): キーを生成する関数
+
+        Returns:
+            dict[TKey, T]: インスタンスの要素を格納する辞書の新しいインスタンス
+        """
+        ...
+
+    @ overload
+    def to_dict(self, key_selector: Callable[[T], TKey], value_selector: Callable[[T], TValue]) -> dict[TKey, TValue]:
+        """辞書に変換します。
+
+        Args:
+            key_selector (Callable[[T], TKey]): キーを生成する関数
+            value_selector (Callable[[T], TValue]): 値を生成する関数
+
+        Returns:
+            dict[TKey, TValue]: インスタンスの要素を格納する辞書の新しいインスタンス
+        """
+        ...
+
+    def to_dict(self, key_selector: Callable[[T], TKey], value_selector: Callable[[T], TValue] | None = None) -> dict[TKey, T] | dict[TKey, TValue]:
+        result: dict[TKey, T] | dict[TKey, TValue]
+
+        if value_selector is None:
+            result = dict[TKey, T]()
+            for current in self:
+                result[key_selector(current)] = current
+            return result
+        else:
+            result = dict[TKey, TValue]()
+            for current in self:
+                result[key_selector(current)] = value_selector(current)
+            return result
+
+    def to_set(self) -> set[T]:
+        """集合に変換します。
+
+        Returns:
+            set[T]: インスタンスの要素を格納する集合の新しいインスタンス
+        """
+        return set[T](self)
