@@ -11,36 +11,52 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
     def __init__(self) -> None:
         """LinqSequence[T]の新しいインスタンスを初期化します。
         """
-        self.__iterator: Iterator[T] | None = None
+        pass
 
     def __iter__(self) -> Iterator[T]:
-        if self.__iterator is not None:
+        if self._in_iteration() is not None:
             self._stop_iteration()
         return self
 
     def __next__(self) -> T:
-        if self.__iterator is None:
-            self.__iterator = iter(self._get_source())
+        if not self._in_iteration():
+            self._start_iteration()
         try:
-            current: T = next(self.__iterator)
+            current: T = self._get_next()
             return current
         except StopIteration:
             self._stop_iteration()
             raise
 
     @abstractmethod
-    def _get_source(self) -> Iterable[T]:
-        """列挙対象を取得します。
+    def _in_iteration(self) -> bool:
+        """インスタンスが列挙中かどうかを取得します。
 
         Returns:
-            Iterable[T]: 列挙対象
+            bool: インスタンスが列挙中の場合はTrue，それ以外でFalse
         """
         ...
 
+    @abstractmethod
+    def _start_iteration(self) -> None:
+        """列挙を開始します。
+        """
+        ...
+
+    @abstractmethod
     def _stop_iteration(self) -> None:
         """列挙を停止します。
         """
-        self.__iterator = None
+        ...
+
+    @abstractmethod
+    def _get_next(self) -> T:
+        """次に列挙する値を取得します。
+
+        Returns:
+            T: 次に列挙する値
+        """
+        ...
 
     # From
 

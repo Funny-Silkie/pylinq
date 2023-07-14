@@ -1,7 +1,7 @@
 from typing import Callable, Generator, Generic, Iterable, Iterator
 
+from .. import LinqSequence
 from ..type_variants import *
-from ..linq_sequence import LinqSequence
 
 
 class FromSequence(LinqSequence[T], Generic[T]):
@@ -14,13 +14,21 @@ class FromSequence(LinqSequence[T], Generic[T]):
         Args:
             source (Iterable[T]): 使用するイテラブルなオブジェクト
         """
-        LinqSequence[T].__init__(
-            self  # type:ignore
-        )
+        super().__init__()
+        self.__iterator: Iterator[T] | None = None
         self.__source: Iterable[T] = source
 
-    def _get_source(self) -> Iterable[T]:
-        return self.__source
+    def _in_iteration(self) -> bool:
+        return not self.__iterator is None
+
+    def _start_iteration(self) -> None:
+        self.__iterator = iter(self.__source)
+
+    def _stop_iteration(self) -> None:
+        self.__iterator = None
+
+    def _get_next(self) -> T:
+        return next(self.__iterator)  # type: ignore
 
 
 class GeneratorSequence(LinqSequence[T], Generic[T]):
@@ -34,27 +42,19 @@ class GeneratorSequence(LinqSequence[T], Generic[T]):
             func (Callable[[*TArgs], Generator[T, None, None]]): Generatorを生成する関数
             args: funcに与える引数
         """
+        super().__init__()
         self.__func: Callable[[*TArgs], Generator[T, None, None]] = func  # type: ignore
         self.__args: tuple = args
         self.__geneartor: Generator[T, None, None] | None = None
 
-    def __iter__(self) -> Iterator[T]:
-        if not self.__geneartor is None:
-            self._stop_iteration()
-        return self
+    def _in_iteration(self) -> bool:
+        return not self.__geneartor is None
 
-    def __next__(self) -> T:
-        if self.__geneartor is None:
-            self.__geneartor = self.__func(*self.__args)
-        try:
-            current: T = next(self.__geneartor)
-            return current
-        except StopIteration:
-            self._stop_iteration()
-            raise
+    def _start_iteration(self) -> None:
+        self.__geneartor = self.__func(*self.__args)
 
     def _stop_iteration(self) -> None:
         self.__geneartor = None
 
-    def _get_source(self) -> Iterable[T]:
-        raise TypeError()
+    def _get_next(self) -> T:
+        return next(self.__geneartor)  # type: ignore
