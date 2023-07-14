@@ -1,1 +1,1 @@
-from .from_sequence import FromSequence
+from .from_sequence import FromSequence, GeneratorSequence

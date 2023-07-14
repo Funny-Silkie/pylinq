@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Generic, Iterable, Iterator
+from typing import Callable, Generator, Generic, Iterable, Iterator, overload
 
 from .type_variants import *
 
@@ -42,6 +42,8 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         """
         self.__iterator = None
 
+    # From
+
     @classmethod
     def from_iterable(cls, source: Iterable[T]) -> "LinqSequence[T]":
         """イテラブルなオブジェクトからシーケンスを生成します。
@@ -54,3 +56,17 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         """
         from ._sequences import FromSequence
         return FromSequence[T](source)
+
+    @classmethod
+    def from_generator(cls, func: Callable[*TArgs, Generator[T, None, None]], *args: *TArgs) -> "LinqSequence[T]":  # type: ignore
+        """Generatorからシーケンスを生成します。
+
+        Args:
+            func (Callable[[*TArgs], Generator[T, None, None]]): Generatorを生成する関数
+            args: funcに与える引数
+
+        Returns:
+            LinqSequence[T]: funcによるGeneratorを持つシーケンスのインスタンス
+        """
+        from ._sequences import GeneratorSequence
+        return GeneratorSequence[T](func, *args)
