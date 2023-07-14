@@ -156,6 +156,330 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
             return cls.empty()
         return RepeatSequence(value, count)
 
+    # Get (Single value)
+
+    def element_at(self, index: int) -> T:
+        """指定したインデックスの要素を取得します。
+
+        Args:
+            index (int): 検索インデックス
+
+        Raises:
+            ValueError: indexが0未満
+            IndexError: indexが要素数以上
+
+        Returns:
+            T: indexに対応する要素
+        """
+        if index < 0:
+            raise ValueError("parameter 'index' must be 0 or positive value")
+        i: int = 0
+        for current in self:
+            if i == index:
+                return current
+            i += 1
+        raise IndexError()
+
+    def element_at_or_default(self, index: int, default: T) -> T:
+        """指定したインデックスの要素を取得します。
+
+        Args:
+            index (int): 検索インデックス
+            default (T): 要素が見つからない場合の既定値
+
+        Raises:
+            ValueError: indexが0未満
+
+        Returns:
+            T: indexに対応する要素，見つからない場合はdefault
+        """
+        if index < 0:
+            raise ValueError("parameter 'index' must be 0 or positive value")
+        i: int = 0
+        for current in self:
+            if i == index:
+                return current
+            i += 1
+        return default
+
+    @overload
+    def first(self, match: None = None) -> T:
+        """先頭の要素を取得します。
+
+        Raises:
+            ValueError: シーケンスが空
+
+        Returns:
+            T: 先頭の要素
+        """
+        ...
+
+    @overload
+    def first(self, match: Callable[[T], bool]) -> T:
+        """条件に適合する先頭の要素を取得します。
+
+        Args:
+            match (Callable[[T], bool]): 要素の条件
+
+        Raises:
+            ValueError: 条件に適合する先頭の要素が存在しない
+
+        Returns:
+            T: matchに適合する末尾の要素
+        """
+        ...
+
+    def first(self, match: Callable[[T], bool] | None = None) -> T:
+        iterator: Iterator[T] = iter(self)
+        if match is None:
+            try:
+                return next(iterator)
+            except StopIteration:
+                raise ValueError("sequence is empty")
+        for current in self:
+            if match(current):
+                return current
+        raise ValueError("the element which matches the condition is not found")
+
+    @overload
+    def first_or_default(self, default: T, match: None = None) -> T:
+        """先頭の要素を取得します。
+
+        Args:
+            default (T): 要素が見つからない場合の既定値
+
+        Returns:
+            T: 先頭の要素，見つからない場合はdefault
+        """
+        ...
+
+    @overload
+    def first_or_default(self, default: T, match: Callable[[T], bool]) -> T:
+        """条件に適合する先頭の要素を取得します。
+
+        Args:
+            default (T): 要素が見つからない場合の既定値
+            match (Callable[[T], bool]): 要素の条件
+
+        Returns:
+            T: matchに適合する先頭の要素，見つからない場合はdefault
+        """
+        ...
+
+    def first_or_default(self, default: T, match: Callable[[T], bool] | None = None) -> T:
+        iterator: Iterator[T] = iter(self)
+        if match is None:
+            try:
+                return next(iterator)
+            except StopIteration:
+                return default
+        for current in self:
+            if match(current):
+                return current
+        return default
+
+    @overload
+    def last(self, match: None = None) -> T:
+        """末尾の要素を取得します。
+
+        Raises:
+            ValueError: シーケンスが空
+
+        Returns:
+            T: 末尾の要素
+        """
+        ...
+
+    @overload
+    def last(self, match: Callable[[T], bool]) -> T:
+        """条件に適合する末尾の要素を取得します。
+
+        Args:
+            match (Callable[[T], bool]): 要素の条件
+
+        Raises:
+            ValueError: 条件に適合する末尾の要素が存在しない
+
+        Returns:
+            T: matchに適合する末尾の要素
+        """
+        ...
+
+    def last(self, match: Callable[[T], bool] | None = None) -> T:
+        iterator: Iterator[T] = iter(self)
+        result: T
+        if match is None:
+            try:
+                result = next(iterator)
+            except StopIteration:
+                raise ValueError("sequence is empty")
+            while True:
+                try:
+                    result = next(iterator)
+                except StopIteration:
+                    return result
+        found: bool = False
+        for current in self:
+            if match(current):
+                result = current
+                found = True
+        if found:
+            return result
+        raise ValueError("the element which matches the condition is not found")
+
+    @overload
+    def last_or_default(self, default: T, match: None = None) -> T:
+        """末尾の要素を取得します。
+
+        Args:
+            default (T): 要素が見つからない場合の既定値
+
+        Returns:
+            T: 末尾の要素，見つからない場合はdefault
+        """
+        ...
+
+    @overload
+    def last_or_default(self, default: T, match: Callable[[T], bool]) -> T:
+        """条件に適合する末尾の要素を取得します。
+
+        Args:
+            default (T): 要素が見つからない場合の既定値
+            match (Callable[[T], bool]): 要素の条件
+
+        Returns:
+            T: matchに適合する末尾の要素，見つからない場合はdefault
+        """
+        ...
+
+    def last_or_default(self, default: T, match: Callable[[T], bool] | None = None) -> T:
+        iterator: Iterator[T] = iter(self)
+        result: T
+        if match is None:
+            try:
+                result = next(iterator)
+            except StopIteration:
+                return default
+            while True:
+                try:
+                    result = next(iterator)
+                except StopIteration:
+                    return result
+        found: bool = False
+        for current in self:
+            if match(current):
+                result = current
+                found = True
+        if found:
+            return result
+        return default
+
+    @overload
+    def single(self, match: None = None) -> T:
+        """単一の要素を取得します。
+
+        Raises:
+            ValueError: シーケンスが空または2つ以上の要素を持つ
+
+        Returns:
+            T: 単一の要素
+        """
+        ...
+
+    @overload
+    def single(self, match: Callable[[T], bool]) -> T:
+        """条件に適合する単一の要素を取得します。
+
+        Args:
+            match (Callable[[T], bool]): 要素の条件
+
+        Raises:
+            ValueError: 条件に適合する単一の要素が存在しないまたは2つ以上存在する
+
+        Returns:
+            T: matchに適合する単一の要素
+        """
+        ...
+
+    def single(self, match: Callable[[T], bool] | None = None) -> T:
+        iterator: Iterator[T] = iter(self)
+        result: T
+        if match is None:
+            try:
+                result = next(iterator)
+            except StopIteration:
+                raise ValueError("sequence is empty")
+            try:
+                next(iterator)
+                raise ValueError("sequence has more than one elements")
+            except StopIteration:
+                return result
+        found: bool = False
+        for current in self:
+            if match(current):
+                if found:
+                    raise ValueError("more than one elements which meet the condition are found")
+                result = current
+                found = True
+        if found:
+            return result
+        raise ValueError("the element which matches the condition is not found")
+
+    @overload
+    def single_or_default(self, default: T, match:  None = None) -> T:
+        """条件に適合する単一の要素を取得します。
+
+        Args:
+            default (T): シーケンスが空の場合の既定値
+
+        Raises:
+            ValueError: シーケンスに要素が2つ以上存在する
+
+        Returns:
+            T: 単一の要素，見つからない場合はdefault
+        """
+        ...
+
+    @overload
+    def single_or_default(self, default: T, match: Callable[[T], bool]) -> T:
+        """条件に適合する単一の要素を取得します。
+
+        Args:
+            default (T): 要素が見つからない場合の既定値
+            match (Callable[[T], bool]): 要素の条件
+
+        Raises:
+            ValueError: 条件に適合する要素が2つ以上存在する
+
+        Returns:
+            T: matchに適合する単一の要素，見つからない場合はdefault
+        """
+        ...
+
+    def single_or_default(self, default: T, match: Callable[[T], bool] | None = None) -> T:
+        iterator: Iterator[T] = iter(self)
+        result: T
+        if match is None:
+            try:
+                result = next(iterator)
+            except StopIteration:
+                return default
+            try:
+                next(iterator)
+                raise ValueError("sequence has more than one elements")
+            except StopIteration:
+                return result
+        found: bool = False
+        for current in self:
+            if match(current):
+                if found:
+                    raise ValueError("more than one elements which meet the condition are found")
+                result = current
+                found = True
+        if found:
+            return result
+        return default
+
     # Get (Multiple values)
 
     @overload
@@ -417,7 +741,7 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         """
         return list[T](self)
 
-    @ overload
+    @overload
     def to_dict(self, key_selector: Callable[[T], TKey], value_selector: None = None) -> dict[TKey, T]:
         """辞書に変換します。
 
@@ -429,7 +753,7 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         """
         ...
 
-    @ overload
+    @overload
     def to_dict(self, key_selector: Callable[[T], TKey], value_selector: Callable[[T], TValue]) -> dict[TKey, TValue]:
         """辞書に変換します。
 
