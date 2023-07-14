@@ -1,4 +1,4 @@
-from typing import Callable, Generator, Generic, Iterable, Iterator
+from typing import Callable, Generator, Generic, Iterable, Iterator, Sized
 
 from .. import LinqSequence
 from ..type_variants import *
@@ -16,19 +16,35 @@ class FromSequence(LinqSequence[T], Generic[T]):
         """
         super().__init__()
         self.__iterator: Iterator[T] | None = None
-        self.__source: Iterable[T] = source
+        self._source: Iterable[T] = source
 
     def _in_iteration(self) -> bool:
         return not self.__iterator is None
 
     def _start_iteration(self) -> None:
-        self.__iterator = iter(self.__source)
+        self.__iterator = iter(self._source)
 
     def _stop_iteration(self) -> None:
         self.__iterator = None
 
     def _get_next(self) -> T:
         return next(self.__iterator)  # type: ignore
+
+
+class SizedFromSequence(FromSequence[T], Sized, Generic[T]):
+    """サイズ付きのイテラブルなオブジェクトをそのまま持つシーケンスのクラスです。
+    """
+
+    def __init__(self, source: Iterable[T]) -> None:
+        """SizedSequence[T]の新しいインスタンスを初期化します。
+
+        Args:
+            source (Iterable[T]): 使用するイテラブルなオブジェクト
+        """
+        super().__init__(source)
+
+    def __len__(self) -> int:
+        return len(self._source)  # type: ignore
 
 
 class GeneratorSequence(LinqSequence[T], Generic[T]):

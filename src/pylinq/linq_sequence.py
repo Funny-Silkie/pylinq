@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Callable, Generator, Generic, Iterable, Iterator, overload
+from typing import Callable, Generator, Generic, Iterable, Iterator, Sized, overload
 
 from .type_variants import *
 
@@ -70,7 +70,9 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         Returns:
             LinqSequence[T]: sourceを持つシーケンスのインスタンス
         """
-        from ._sequences import FromSequence
+        from ._sequences import FromSequence, SizedFromSequence
+        if isinstance(source, Sized):
+            return SizedFromSequence[T](source)
         return FromSequence[T](source)
 
     @classmethod
