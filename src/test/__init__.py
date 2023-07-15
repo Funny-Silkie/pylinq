@@ -2,6 +2,7 @@ from .from_test import FromTest
 from .create_test import CreateTest
 from .get_single_test import GetSingleTest
 from .filtering_test import FiteringTest
+from .grouping_test import GroupingTest
 from .set_operation_test import SetOperationTest
 from .partitioning_test import GetMultiTest
 from .projection_test import ProjectionTest

@@ -3,4 +3,5 @@ from .create_sequence import EmptySequence, RangeSequence, RepeatSequence
 from .concatination_sequence import ConcatSequence, ApPrependSequence
 from .projection_sequence import SelectSequence
 from .filtering_sequence import WhereSequence
+from .grouping_sequence import GroupingImpl, LookupImpl
 from .partitioning_sequence import TakeSequence, TakeLastSequence, TakeWhileSequence
