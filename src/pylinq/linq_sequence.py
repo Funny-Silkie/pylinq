@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Callable, Generator, Generic, Iterable, Iterator, Sized, overload
+from typing import TYPE_CHECKING, Callable, Generator, Generic, Iterable, Iterator, Literal, Sized, overload
 
 from .type_variants import *
 if TYPE_CHECKING:
@@ -219,6 +219,41 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         """
         from ._sequences import ApPrependSequence
         return ApPrependSequence[T](self, value, False)
+
+    # Check (Sequence)
+
+    def sequence_equal(self, other: Iterable[T]) -> bool:
+        """2つのシーケンス間の要素の等価性を検証します。
+
+        Args:
+            other (Iterable[T]): 比較対象
+
+        Returns:
+            bool: selfとotherが同じ要素を持つ場合はTrue，それ以外でFalse
+        """
+        def move_next(iterator: Iterator[T]) -> tuple[Literal[False]] | tuple[Literal[True], T]:
+            try:
+                current: T = next(iterator)
+                return (True, current)
+            except StopIteration:
+                return (False,)
+
+        if id(self) == id(other):
+            return True
+        if isinstance(self, Sized) and isinstance(other, Sized) and len(self) != len(other):
+            return False
+        iterator1: Iterator[T] = iter(self)
+        iterator2: Iterator[T] = iter(other)
+        while True:
+            current1: tuple[Literal[False]] | tuple[Literal[True], T] = move_next(iterator1)
+            current2: tuple[Literal[False]] | tuple[Literal[True], T] = move_next(iterator2)
+            if current1[0] != current2[0]:
+                return False
+            if not current1[0]:
+                return True
+            value2: T = current2[1]  # type: ignore
+            if current1[1] != value2:
+                return False
 
     # Check (Element)
 
