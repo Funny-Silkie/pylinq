@@ -768,6 +768,81 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
                 already_iterated.add(key)
         return self.from_generator(inner, self, key_selector)
 
+    def union(self, source: Iterable[T]) -> "LinqSequence[T]":
+        """和集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+
+        Returns:
+            LinqSequence[T]: 和集合を表すシーケンス
+        """
+        from ._sequences import UnionSequence
+        return UnionSequence[T](self, source)
+
+    def union_by(self, source: Iterable[T], key_selector: Callable[[T], TKey]) -> "LinqSequence[T]":
+        """和集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+            key_selector (Callable[[T], TKey]): 比較時のキーを生成する関数
+
+        Returns:
+            LinqSequence[T]: 和集合を表すシーケンス
+        """
+        from ._sequences import UnionBySequence
+        return UnionBySequence[T, TKey](self, source, key_selector)
+
+    def excepted(self, source: Iterable[T]) -> "LinqSequence[T]":
+        """差集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+
+        Returns:
+            LinqSequence[T]: 差集合を表すシーケンス
+        """
+        from ._sequences import ExceptSequence
+        return ExceptSequence[T](self, source)
+
+    def excepted_by(self, source: Iterable[T], key_selector: Callable[[T], TKey]) -> "LinqSequence[T]":
+        """差集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+            key_selector (Callable[[T], TKey]): 比較時のキーを生成する関数
+
+        Returns:
+            LinqSequence[T]: 差集合を表すシーケンス
+        """
+        from ._sequences import ExceptBySequence
+        return ExceptBySequence[T, TKey](self, source, key_selector)
+
+    def intercept(self, source: Iterable[T]) -> "LinqSequence[T]":
+        """積集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+
+        Returns:
+            LinqSequence[T]: 積集合を表すシーケンス
+        """
+        from ._sequences import InterceptSequence
+        return InterceptSequence[T](self, source)
+
+    def intercept_by(self, source: Iterable[T], key_selector: Callable[[T], TKey]) -> "LinqSequence[T]":
+        """積集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+            key_selector (Callable[[T], TKey]): 比較時のキーを生成する関数
+
+        Returns:
+            LinqSequence[T]: 積集合を表すシーケンス
+        """
+        from ._sequences import InterceptBySequence
+        return InterceptBySequence[T, TKey](self, source, key_selector)
+
     # Partitioning
 
     def skip(self, count: int) -> "LinqSequence[T]":
