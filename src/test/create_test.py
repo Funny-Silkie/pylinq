@@ -25,3 +25,13 @@ class CreateTest(unittest.TestCase):
             assert current == "aaa"
             count += 1
         assert count == 5
+
+    def test_default_if_empty1(self) -> None:
+        sequence: LinqSequence[int] = LinqSequence.from_iterable(range(10))\
+            .default_if_empty(-1)
+        assert sequence.to_list() == list[int](range(10))
+
+    def test_default_if_empty2(self) -> None:
+        sequence: LinqSequence[int] = LinqSequence.from_iterable(list[int]())\
+            .default_if_empty(-1)
+        assert sequence.to_list() == [-1]
