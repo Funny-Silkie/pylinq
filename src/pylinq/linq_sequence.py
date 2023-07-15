@@ -220,6 +220,70 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         from ._sequences import ApPrependSequence
         return ApPrependSequence[T](self, value, False)
 
+    # Check (Element)
+
+    @overload
+    def any(self, match: None = None) -> bool:
+        """シーケンスが要素を持つかどうかを検証します。
+
+        Returns:
+            bool: 要素を持つ場合はTrue，それ以外でFalse
+        """
+        ...
+
+    @overload
+    def any(self, match: Callable[[T], bool]) -> bool:
+        """シーケンスが条件に適合する要素を持つかを検証します。
+
+        Args:
+            match (Callable[[T], bool]): 検証する要素の条件
+
+        Returns:
+            bool: matchに適合する要素が含まれていたらTrue，それ以外でFalse
+        """
+        ...
+
+    def any(self, match: Callable[[T], bool] | None = None) -> bool:
+        if match is None:
+            iterator: Iterator[T] = iter(self)
+            try:
+                next(iterator)
+                return True
+            except StopIteration:
+                return False
+        for current in self:
+            if match(current):
+                return True
+        return False
+
+    def all(self, match: Callable[[T], bool]) -> bool:
+        """全ての要素が条件に適合するかどうかを検証します。
+
+        Args:
+            match (Callable[[T], bool]): 検証する要素の条件
+
+        Returns:
+            bool: 全ての要素がmatchに適合したらTrue，それ以外でFalse
+        """
+        for current in self:
+            if not match(current):
+                return False
+        return True
+
+    def contains(self, value: T) -> bool:
+        """シーケンスに指定した要素が含まれているかどうかを検証します。
+
+        Args:
+            value (T): 検証する要素
+
+        Returns:
+            bool: valueが含まれていたらTrue，それ以外でFalse
+        """
+        for current in self:
+            if current == value:
+                return True
+        return False
+
     # Get (Single value)
 
     def element_at(self, index: int) -> T:
