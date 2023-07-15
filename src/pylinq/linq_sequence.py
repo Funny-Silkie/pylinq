@@ -180,6 +180,44 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
 
         return self.from_generator(inner, self, default)
 
+    # Concatination
+
+    def concat(self, iterable: Iterable[T]) -> "LinqSequence[T]":
+        """末尾にシーケンスを結合します。
+
+        Args:
+            iterable (Iterable[T]): 末尾に結合するシーケンス
+
+        Returns:
+            LinqSequence[T]: 結合のシーケンス
+        """
+        from ._sequences import ConcatSequence
+        return ConcatSequence[T](self, iterable)
+
+    def append(self, value: T) -> "LinqSequence[T]":
+        """シーケンスの末尾に要素を追加します。
+
+        Args:
+            value (T): 追加する要素
+
+        Returns:
+            LinqSequence[T]: 追加後のシーケンス
+        """
+        from ._sequences import ApPrependSequence
+        return ApPrependSequence[T](self, value, True)
+
+    def prepend(self, value: T) -> "LinqSequence[T]":
+        """シーケンスの先頭に要素を追加します。
+
+        Args:
+            value (T): 追加する要素
+
+        Returns:
+            LinqSequence[T]: 追加後のシーケンス
+        """
+        from ._sequences import ApPrependSequence
+        return ApPrependSequence[T](self, value, False)
+
     # Get (Single value)
 
     def element_at(self, index: int) -> T:
