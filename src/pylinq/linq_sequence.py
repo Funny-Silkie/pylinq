@@ -731,6 +731,173 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
 
         return self.from_generator(inner, self, default)
 
+    # Projection
+    @overload
+    def select(self, selector: Callable[[T], TResult]) -> "LinqSequence[TResult]":
+        """要素の変換を行います。
+
+        Args:
+            selector (Callable[[T], TResult]): 要素を基に変換を行う関数
+
+        Returns:
+            LinqSequence[TResult]: 変換後のシーケンス
+        """
+        ...
+
+    @overload
+    def select(self, selector: Callable[[T, int], TResult]) -> "LinqSequence[TResult]":
+        """要素の変換を行います。
+
+        Args:
+            selector (Callable[[T, int], TResult]): 要素とインデックスを基に変換を行う関数
+
+        Returns:
+            LinqSequence[TResult]: 変換後のシーケンス
+        """
+        ...
+
+    def select(self, selector: Callable[[T], TResult] | Callable[[T, int], TResult]) -> "LinqSequence[TResult]":
+        from ._common import get_parameter_count
+        from ._sequences import SelectSequence
+        if get_parameter_count(selector) == 1:
+            selector1: Callable[[T], TResult] = selector  # type:ignore
+            return SelectSequence[T, TResult](self, lambda x, _: selector1(x))
+        selector2: Callable[[T, int], TResult] = selector  # type:ignore
+        return SelectSequence[T, TResult](self, selector2)
+
+    @overload
+    def select_many(self, collection_selector: Callable[[T], Iterable[T2]], result_selector: None = None) -> "LinqSequence[T2]":
+        """シーケンスを平坦化します。
+
+        Args:
+            collection_selector (Callable[[T], Iterable[T2]]): 要素を基にコレクションを導出する関数
+
+        Returns:
+            LinqSequence[T2]: 平坦化後のシーケンス
+        """
+        ...
+
+    @overload
+    def select_many(self, collection_selector: Callable[[T, int], Iterable[T2]], result_selector: None = None) -> "LinqSequence[T2]":
+        """シーケンスを平坦化します。
+
+        Args:
+            collection_selector (Callable[[T, int], Iterable[T2]]): 要素とインデックスを基にコレクションを導出する関数
+
+        Returns:
+            LinqSequence[T2]: 平坦化後のシーケンス
+        """
+        ...
+
+    @overload
+    def select_many(self, collection_selector: Callable[[T], Iterable[T2]], result_selector: Callable[[T2], TResult]) -> "LinqSequence[TResult]":
+        """シーケンスを平坦化します。
+
+        Args:
+            collection_selector (Callable[[T], Iterable[T2]]): 要素を基にコレクションを導出する関数
+            result_selector (Callable[[T2], TResult]): コレクションの要素を変換する関数
+
+        Returns:
+            LinqSequence[TResult]: 平坦化後のシーケンス
+        """
+        ...
+
+    @overload
+    def select_many(self, collection_selector: Callable[[T, int], Iterable[T2]], result_selector: Callable[[T2], TResult]) -> "LinqSequence[TResult]":
+        """シーケンスを平坦化します。
+
+        Args:
+            collection_selector (Callable[[T, int], Iterable[T2]]): 要素とインデックスを基にコレクションを導出する関数
+            result_selector (Callable[[T2], TResult]): コレクションの要素を変換する関数
+
+        Returns:
+            LinqSequence[TResult]: 平坦化後のシーケンス
+        """
+        ...
+
+    def select_many(self, collection_selector: Callable[[T], Iterable[T2]] | Callable[[T, int], Iterable[T2]], result_selector: Callable[[T2], TResult] | None = None) -> "LinqSequence[T2] | LinqSequence[TResult]":
+        from ._common import get_parameter_count
+        c_selector1: Callable[[T], Iterable[T2]]
+        c_selector2: Callable[[T, int], Iterable[T2]]
+        if result_selector is None:
+            # select_many(collection_selector: Callable[[T], Iterable[T2]]) -> LinqSequence[T2]
+            if get_parameter_count(collection_selector) == 1:
+                def inner1(source: LinqSequence[T], collection_selector: Callable[[T], Iterable[T2]]) -> Generator[T2, None, None]:
+                    for current in source:
+                        yield from collection_selector(current)
+                c_selector1 = collection_selector  # type: ignore
+                return LinqSequence[T2].from_generator(inner1, self, c_selector1)
+            # select_many(collection_selector: Callable[[T, int], Iterable[T2]]) -> LinqSequence[T2]
+            else:
+                def inner2(source: LinqSequence[T], collection_selector: Callable[[T, int], Iterable[T2]]) -> Generator[T2, None, None]:
+                    index: int = 0
+                    for current in source:
+                        yield from collection_selector(current, index)
+                        index += 1
+
+                c_selector2 = collection_selector  # type: ignore
+                return LinqSequence[T2].from_generator(inner2, self, c_selector2)
+        else:
+            # select_many(collection_selector: Callable[[T], Iterable[T2]], result_selector: Callable[[T2], TResults]) -> LinqSequence[TResult]
+            if get_parameter_count(collection_selector) == 1:
+                def inner3(source: LinqSequence[T], collection_selector: Callable[[T], Iterable[T2]], result_selector: Callable[[T2], TResult]) -> Generator[TResult, None, None]:
+                    for current in source:
+                        for intermediate in collection_selector(current):
+                            yield result_selector(intermediate)
+
+                c_selector1 = collection_selector  # type: ignore
+                return LinqSequence[TResult].from_generator(inner3, self, c_selector1, result_selector)
+            # select_many(collection_selector: Callable[[T], Iterable[T2, int]], result_selector: Callable[[T2], TResults]) -> LinqSequence[TResult]
+            else:
+                def inner4(source: LinqSequence[T], collection_selector: Callable[[T, int], Iterable[T2]], result_selector: Callable[[T2], TResult]) -> Generator[TResult, None, None]:
+                    index: int = 0
+                    for current in source:
+                        for intermediate in collection_selector(current, index):
+                            yield result_selector(intermediate)
+                        index += 1
+
+                c_selector2 = collection_selector  # type: ignore
+                return LinqSequence[TResult].from_generator(inner4, self, c_selector2, result_selector)
+
+    @overload
+    def zip(self, after: Iterable[T2], result_selector: None = None) -> "LinqSequence[tuple[T, T2]]":
+        """シーケンスの要素同士を結合します。
+
+        Args:
+            after (Iterable[T2]): 結合するシーケンス
+
+        Returns:
+            LinqSequence[tuple[T, T2]]: 結合後のシーケンス
+        """
+        ...
+
+    @overload
+    def zip(self, after: Iterable[T2], result_selector: Callable[[T, T2], TResult]) -> "LinqSequence[TResult]":
+        """シーケンスの要素同士を結合します。
+
+        Args:
+            after (Iterable[T2]): 結合するシーケンス
+            result_selector (Callable[[T, T2], TResult]): 要素を結合する関数
+
+        Returns:
+            LinqSequence[TResult]: 結合後のシーケンス
+        """
+        ...
+
+    def zip(self, after: Iterable[T2], result_selector: Callable[[T, T2], TResult] | None = None) -> "LinqSequence[tuple[T, T2]] | LinqSequence[TResult]":
+        def inner(first: LinqSequence[T], second: LinqSequence[T2], result_selector: Callable[[T, T2], TResult]) -> Generator[TResult, None, None]:
+            iter1: Iterator[T] = iter(first)
+            iter2: Iterator[T2] = iter(second)
+            while True:
+                try:
+                    yield result_selector(next(iter1), next(iter2))
+                except StopIteration:
+                    return
+
+        if result_selector is None:
+            return LinqSequence[tuple[T, T2]].from_generator(inner, self, after, lambda x, y: (x, y))
+        return LinqSequence[TResult].from_generator(inner, self, after, result_selector)
+
     # Convert to collection
 
     def to_list(self) -> list[T]:
