@@ -156,6 +156,30 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
             return cls.empty()
         return RepeatSequence(value, count)
 
+    def default_if_empty(self, default: T) -> "LinqSequence[T]":
+        """シーケンスが空の場合に既定値を一つ与えるシーケンスを取得します。
+
+        Args:
+            default (T): シーケンスが空の場合の既定値
+
+        Returns:
+            LinqSequence[T]: シーケンスが空の場合に既定値を一つ与えるシーケンス
+        """
+
+        def inner(source: LinqSequence[T], default: T) -> Generator[T, None, None]:
+            iterator: Iterator[T] = iter(source)
+            try:
+                yield next(iterator)
+            except StopIteration:
+                yield default
+            while True:
+                try:
+                    yield next(iterator)
+                except StopIteration:
+                    return
+
+        return self.from_generator(inner, self, default)
+
     # Get (Single value)
 
     def element_at(self, index: int) -> T:
@@ -480,7 +504,7 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
             return result
         return default
 
-    # Get (Multiple values)
+    # Filtering
 
     @overload
     def where(self, match: Callable[[T], bool]) -> "LinqSequence[T]":
@@ -527,6 +551,8 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         result: LinqSequence[TResult] = self.where(lambda x: isinstance(x, target))  # type: ignore
         return result
 
+    # Set operation
+
     def distinct(self) -> "LinqSequence[T]":
         """一意の要素からなるシーケンスに変換します。
 
@@ -560,6 +586,8 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
                 yield current
                 already_iterated.add(key)
         return self.from_generator(inner, self, key_selector)
+
+    # Partitioning
 
     def skip(self, count: int) -> "LinqSequence[T]":
         """先頭から指定した要素数をスキップするシーケンスを取得します。
@@ -706,30 +734,6 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
             return TakeWhileSequence[T](self, lambda x, _: match1(x))
         match2: Callable[[T, int], bool] = match  # type: ignore
         return TakeWhileSequence[T](self, match2)
-
-    def default_if_empty(self, default: T) -> "LinqSequence[T]":
-        """シーケンスが空の場合に既定値を一つ与えるシーケンスを取得します。
-
-        Args:
-            default (T): シーケンスが空の場合の既定値
-
-        Returns:
-            LinqSequence[T]: シーケンスが空の場合に既定値を一つ与えるシーケンス
-        """
-
-        def inner(source: LinqSequence[T], default: T) -> Generator[T, None, None]:
-            iterator: Iterator[T] = iter(source)
-            try:
-                yield next(iterator)
-            except StopIteration:
-                yield default
-            while True:
-                try:
-                    yield next(iterator)
-                except StopIteration:
-                    return
-
-        return self.from_generator(inner, self, default)
 
     # Projection
     @overload
