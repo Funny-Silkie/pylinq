@@ -1,9 +1,10 @@
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Callable, Generator, Generic, Iterable, Iterator, Sized, overload
+from typing import TYPE_CHECKING, Callable, Generator, Generic, Iterable, Iterator, Literal, Sized, overload
 
 from .type_variants import *
 if TYPE_CHECKING:
     from .grouping import Grouping, Lookup
+    from .ordering import OrderedLinqSequence
 
 
 class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
@@ -219,6 +220,105 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         """
         from ._sequences import ApPrependSequence
         return ApPrependSequence[T](self, value, False)
+
+    # Check (Sequence)
+
+    def sequence_equal(self, other: Iterable[T]) -> bool:
+        """2つのシーケンス間の要素の等価性を検証します。
+
+        Args:
+            other (Iterable[T]): 比較対象
+
+        Returns:
+            bool: selfとotherが同じ要素を持つ場合はTrue，それ以外でFalse
+        """
+        def move_next(iterator: Iterator[T]) -> tuple[Literal[False]] | tuple[Literal[True], T]:
+            try:
+                current: T = next(iterator)
+                return (True, current)
+            except StopIteration:
+                return (False,)
+
+        if id(self) == id(other):
+            return True
+        if isinstance(self, Sized) and isinstance(other, Sized) and len(self) != len(other):
+            return False
+        iterator1: Iterator[T] = iter(self)
+        iterator2: Iterator[T] = iter(other)
+        while True:
+            current1: tuple[Literal[False]] | tuple[Literal[True], T] = move_next(iterator1)
+            current2: tuple[Literal[False]] | tuple[Literal[True], T] = move_next(iterator2)
+            if current1[0] != current2[0]:
+                return False
+            if not current1[0]:
+                return True
+            value2: T = current2[1]  # type: ignore
+            if current1[1] != value2:
+                return False
+
+    # Check (Element)
+
+    @overload
+    def any(self, match: None = None) -> bool:
+        """シーケンスが要素を持つかどうかを検証します。
+
+        Returns:
+            bool: 要素を持つ場合はTrue，それ以外でFalse
+        """
+        ...
+
+    @overload
+    def any(self, match: Callable[[T], bool]) -> bool:
+        """シーケンスが条件に適合する要素を持つかを検証します。
+
+        Args:
+            match (Callable[[T], bool]): 検証する要素の条件
+
+        Returns:
+            bool: matchに適合する要素が含まれていたらTrue，それ以外でFalse
+        """
+        ...
+
+    def any(self, match: Callable[[T], bool] | None = None) -> bool:
+        if match is None:
+            iterator: Iterator[T] = iter(self)
+            try:
+                next(iterator)
+                return True
+            except StopIteration:
+                return False
+        for current in self:
+            if match(current):
+                return True
+        return False
+
+    def all(self, match: Callable[[T], bool]) -> bool:
+        """全ての要素が条件に適合するかどうかを検証します。
+
+        Args:
+            match (Callable[[T], bool]): 検証する要素の条件
+
+        Returns:
+            bool: 全ての要素がmatchに適合したらTrue，それ以外でFalse
+        """
+        for current in self:
+            if not match(current):
+                return False
+        return True
+
+    def contains(self, value: T) -> bool:
+        """シーケンスに指定した要素が含まれているかどうかを検証します。
+
+        Args:
+            value (T): 検証する要素
+
+        Returns:
+            bool: valueが含まれていたらTrue，それ以外でFalse
+        """
+        for current in self:
+            if current == value:
+                return True
+        return False
 
     # Get (Single value)
 
@@ -732,6 +832,48 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
 
                 return LinqSequence[TResult].from_generator(inner4, self, key_selector, element_selector, result_selector)
 
+    # Ordering
+
+    def order(self) -> "OrderedLinqSequence[T]":
+        """並び替えられたシーケンスを取得します。
+
+        Returns:
+            OrderedLinqSequence[T]: 並び替えられたシーケンス
+        """
+        return self.order_by(lambda x: x)
+
+    def order_by(self, key_selector: Callable[[T], TKey]) -> "OrderedLinqSequence[T]":
+        """並び替えられたシーケンスを取得します。
+
+        Args:
+            key_selector (Callable[[T], TKey]): 並べ替えに用いるキーを生成する関数
+
+        Returns:
+            OrderedLinqSequence[T]: 並び替えられたシーケンス
+        """
+        from ._sequences import OrderedLinqSequenceImpl
+        return OrderedLinqSequenceImpl[T, TKey](self, key_selector, False, None)
+
+    def order_descending(self) -> "OrderedLinqSequence[T]":
+        """逆順に並び替えられたシーケンスを取得します。
+
+        Returns:
+            OrderedLinqSequence[T]: 並び替えられたシーケンス
+        """
+        return self.order_by_descending(lambda x: x)
+
+    def order_by_descending(self, key_selector: Callable[[T], TKey]) -> "OrderedLinqSequence[T]":
+        """逆順に並び替えられたシーケンスを取得します。
+
+        Args:
+            key_selector (Callable[[T], TKey]): 並べ替えに用いるキーを生成する関数
+
+        Returns:
+            OrderedLinqSequence[T]: 並び替えられたシーケンス
+        """
+        from ._sequences import OrderedLinqSequenceImpl
+        return OrderedLinqSequenceImpl[T, TKey](self, key_selector, True, None)
+
     # Set operation
 
     def distinct(self) -> "LinqSequence[T]":
@@ -767,6 +909,81 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
                 yield current
                 already_iterated.add(key)
         return self.from_generator(inner, self, key_selector)
+
+    def union(self, source: Iterable[T]) -> "LinqSequence[T]":
+        """和集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+
+        Returns:
+            LinqSequence[T]: 和集合を表すシーケンス
+        """
+        from ._sequences import UnionSequence
+        return UnionSequence[T](self, source)
+
+    def union_by(self, source: Iterable[T], key_selector: Callable[[T], TKey]) -> "LinqSequence[T]":
+        """和集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+            key_selector (Callable[[T], TKey]): 比較時のキーを生成する関数
+
+        Returns:
+            LinqSequence[T]: 和集合を表すシーケンス
+        """
+        from ._sequences import UnionBySequence
+        return UnionBySequence[T, TKey](self, source, key_selector)
+
+    def excepted(self, source: Iterable[T]) -> "LinqSequence[T]":
+        """差集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+
+        Returns:
+            LinqSequence[T]: 差集合を表すシーケンス
+        """
+        from ._sequences import ExceptSequence
+        return ExceptSequence[T](self, source)
+
+    def excepted_by(self, source: Iterable[T], key_selector: Callable[[T], TKey]) -> "LinqSequence[T]":
+        """差集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+            key_selector (Callable[[T], TKey]): 比較時のキーを生成する関数
+
+        Returns:
+            LinqSequence[T]: 差集合を表すシーケンス
+        """
+        from ._sequences import ExceptBySequence
+        return ExceptBySequence[T, TKey](self, source, key_selector)
+
+    def intercept(self, source: Iterable[T]) -> "LinqSequence[T]":
+        """積集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+
+        Returns:
+            LinqSequence[T]: 積集合を表すシーケンス
+        """
+        from ._sequences import InterceptSequence
+        return InterceptSequence[T](self, source)
+
+    def intercept_by(self, source: Iterable[T], key_selector: Callable[[T], TKey]) -> "LinqSequence[T]":
+        """積集合を取得します。
+
+        Args:
+            source (Iterable[T]): 比較集合
+            key_selector (Callable[[T], TKey]): 比較時のキーを生成する関数
+
+        Returns:
+            LinqSequence[T]: 積集合を表すシーケンス
+        """
+        from ._sequences import InterceptBySequence
+        return InterceptBySequence[T, TKey](self, source, key_selector)
 
     # Partitioning
 
