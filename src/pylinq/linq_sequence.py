@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Callable, Generator, Generic, Iterable, Iterat
 from .type_variants import *
 if TYPE_CHECKING:
     from .grouping import Grouping, Lookup
+    from .ordering import OrderedLinqSequence
 
 
 class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
@@ -830,6 +831,48 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
                         yield result_selector(current.key, current)
 
                 return LinqSequence[TResult].from_generator(inner4, self, key_selector, element_selector, result_selector)
+
+    # Ordering
+
+    def order(self) -> "OrderedLinqSequence[T]":
+        """並び替えられたシーケンスを取得します。
+
+        Returns:
+            OrderedLinqSequence[T]: 並び替えられたシーケンス
+        """
+        return self.order_by(lambda x: x)
+
+    def order_by(self, key_selector: Callable[[T], TKey]) -> "OrderedLinqSequence[T]":
+        """並び替えられたシーケンスを取得します。
+
+        Args:
+            key_selector (Callable[[T], TKey]): 並べ替えに用いるキーを生成する関数
+
+        Returns:
+            OrderedLinqSequence[T]: 並び替えられたシーケンス
+        """
+        from ._sequences import OrderedLinqSequenceImpl
+        return OrderedLinqSequenceImpl[T, TKey](self, key_selector, False, None)
+
+    def order_descending(self) -> "OrderedLinqSequence[T]":
+        """逆順に並び替えられたシーケンスを取得します。
+
+        Returns:
+            OrderedLinqSequence[T]: 並び替えられたシーケンス
+        """
+        return self.order_by_descending(lambda x: x)
+
+    def order_by_descending(self, key_selector: Callable[[T], TKey]) -> "OrderedLinqSequence[T]":
+        """逆順に並び替えられたシーケンスを取得します。
+
+        Args:
+            key_selector (Callable[[T], TKey]): 並べ替えに用いるキーを生成する関数
+
+        Returns:
+            OrderedLinqSequence[T]: 並び替えられたシーケンス
+        """
+        from ._sequences import OrderedLinqSequenceImpl
+        return OrderedLinqSequenceImpl[T, TKey](self, key_selector, True, None)
 
     # Set operation
 
