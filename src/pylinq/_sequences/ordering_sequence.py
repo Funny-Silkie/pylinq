@@ -69,4 +69,4 @@ class OrderedLinqSequenceImpl(OrderedLinqSequence[T], Generic[T, TKey]):
         return self.__iterated[self.__keys[i][1]]
 
     def _create_oredered_sequence(self, key_selector: Callable[[T], T2], descending: bool) -> OrderedLinqSequence[T]:
-        return OrderedLinqSequenceImpl[T, T2](self.__source, key_selector, descending, self)
+        return OrderedLinqSequenceImpl[T, tuple[TKey, T2]](self.__source, lambda x: (self.__key_selector(x), key_selector(x)), descending, self)

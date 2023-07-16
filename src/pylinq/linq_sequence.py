@@ -874,6 +874,17 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         from ._sequences import OrderedLinqSequenceImpl
         return OrderedLinqSequenceImpl[T, TKey](self, key_selector, True, None)
 
+    def reverse(self) -> "LinqSequence[T]":
+        """逆順のシーケンスを取得します。
+
+        Returns:
+            LinqSequence[T]: 逆順のシーケンス
+        """
+        def inner(source: LinqSequence[T]) -> Generator[T, None, None]:
+            yield from reversed(source.to_list())
+
+        return self.from_generator(inner, self)
+
     # Set operation
 
     def distinct(self) -> "LinqSequence[T]":
