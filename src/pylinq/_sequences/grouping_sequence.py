@@ -80,6 +80,19 @@ class LookupImpl(Lookup[TKey, TValue], Generic[TKey, TValue]):
         self.__source[key] = result
         return result
 
+    def get_grouping(self, key: TKey) -> GroupingImpl[TKey, TValue] | None:
+        """キーに基づくGroupingのインスタンスを取得します。
+
+        Args:
+            key (TKey): キー
+
+        Returns:
+            GroupingImpl[TKey, TValue] | None: keyに基づくインスタンス。存在しない場合はNone
+        """
+        if key in self.__source:
+            return self.__source[key]
+        return None
+
     def _in_iteration(self) -> bool:
         return not self.__key_iterator is None
 

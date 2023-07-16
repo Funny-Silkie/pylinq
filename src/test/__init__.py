@@ -1,5 +1,7 @@
 from .from_test import FromTest
 from .create_test import CreateTest
+from .concatination_test import ConcatinationTest
+from .joining_test import JoiningTest
 from .check_sequence_test import CheckSequenceTest
 from .check_element_test import CheckElementTest
 from .get_single_test import GetSingleTest

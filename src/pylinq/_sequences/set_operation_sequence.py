@@ -235,6 +235,7 @@ class InterceptSequence(LinqSequence[T], Generic[T]):
             )
             if not current in self.__set:
                 continue
+            self.__set.remove(current)
             return current
 
 
@@ -280,4 +281,5 @@ class InterceptBySequence(LinqSequence[T], Generic[T, TKey]):
             key: TKey = self.__key_selector(current)
             if not key in self.__set:
                 continue
+            self.__set.remove(key)
             return current
