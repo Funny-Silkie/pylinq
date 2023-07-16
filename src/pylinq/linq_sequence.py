@@ -221,6 +221,89 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         from ._sequences import ApPrependSequence
         return ApPrependSequence[T](self, value, False)
 
+    # Joining
+
+    def join(
+            self,
+            inner: Iterable[T2],
+            outer_key_selector: Callable[[T], TKey],
+            inner_key_selector: Callable[[T2], TKey],
+            result_selector: Callable[[T, T2], TResult]
+    ) -> "LinqSequence[TResult]":
+        """シーケンスのデータ同士をキーに基づいて結合します。
+
+        Args:
+            inner (Iterable[T2]): 結合対象
+            outer_key_selector (Callable[[T], TKey]): selfにおけるキーを生成する関数
+            inner_key_selector (Callable[[T2], TKey]): innerにおけるキーを生成する関数
+            result_selector (Callable[[T, T2], TResult]): キーの等しい要素を結合する関数
+
+        Returns:
+            LinqSequence[TResult]: 結合のシーケンス
+        """
+        def inner_func(
+                outer: LinqSequence[T],
+                inner: Iterable[T2],
+                outer_key_selector: Callable[[T], TKey],
+                inner_key_selector: Callable[[T2], TKey],
+                result_selector: Callable[[T, T2], TResult]
+        ) -> Generator[TResult, None, None]:
+            from ._sequences import LookupImpl, GroupingImpl
+
+            look_up = LookupImpl[TKey, T2]()
+            key: TKey
+            for current_inner in inner:
+                key = inner_key_selector(current_inner)
+                look_up.get_or_add_grouping(key).add(current_inner)
+            if len(look_up) == 0:
+                return
+            for current_outer in outer:
+                key = outer_key_selector(current_outer)
+                group: GroupingImpl[TKey, T2] | None = look_up.get_grouping(key)
+                if group is None:
+                    continue
+                for current_group in group:
+                    yield result_selector(current_outer, current_group)
+
+        return LinqSequence[TResult].from_generator(inner_func, self, inner, outer_key_selector, inner_key_selector, result_selector)
+
+    def group_join(
+            self,
+            inner: Iterable[T2],
+            outer_key_selector: Callable[[T], TKey],
+            inner_key_selector: Callable[[T2], TKey],
+            result_selector: "Callable[[T, LinqSequence[T2]], TResult]"
+    ) -> "LinqSequence[TResult]":
+        """シーケンスのデータ同士をキーに基づいてグループ化して結合します。
+
+        Args:
+            inner (Iterable[T2]): 結合対象
+            outer_key_selector (Callable[[T], TKey]): selfにおけるキーを生成する関数
+            inner_key_selector (Callable[[T2], TKey]): innerにおけるキーを生成する関数
+            result_selector (Callable[[T, T2], TResult]): キーの等しい要素のグループを結合する関数
+
+        Returns:
+            LinqSequence[TResult]: 結合のシーケンス
+        """
+        def inner_func(
+                outer: LinqSequence[T],
+                inner: Iterable[T2],
+                outer_key_selector: Callable[[T], TKey],
+                inner_key_selector: Callable[[T2], TKey],
+                result_selector: Callable[[T, LinqSequence[T2]], TResult]
+        ) -> Generator[TResult, None, None]:
+            from ._sequences import LookupImpl, GroupingImpl
+            look_up = LookupImpl[TKey, T2]()
+            key: TKey
+            for current_inner in inner:
+                key = inner_key_selector(current_inner)
+                look_up.get_or_add_grouping(key).add(current_inner)
+            for current_outer in outer:
+                key = outer_key_selector(current_outer)
+                yield result_selector(current_outer, look_up[key])
+
+        return LinqSequence[TResult].from_generator(inner_func, self, inner, outer_key_selector, inner_key_selector, result_selector)
+
     # Check (Sequence)
 
     def sequence_equal(self, other: Iterable[T]) -> bool:
@@ -1144,7 +1227,34 @@ class LinqSequence(Generic[T], Iterator[T], metaclass=ABCMeta):
         match2: Callable[[T, int], bool] = match  # type: ignore
         return TakeWhileSequence[T](self, match2)
 
+    def chunk(self, size: int) -> "LinqSequence[list[T]]":
+        """指定したサイズごとに分割します。
+
+        Args:
+            size (int): 分割するサイズ
+
+        Raises:
+            ValueError: sizeが0以下
+
+        Returns:
+            LinqSequence[list[T]]: 分割されたシーケンス
+        """
+        def inner(source: LinqSequence[T], size: int) -> Generator[list[T], None, None]:
+            result = list[T]()
+            for current in source:
+                result.append(current)
+                if len(result) == size:
+                    yield result
+                    result = list[T]()
+            if len(result) > 0:
+                yield result
+
+        if size <= 0:
+            raise ValueError("parameter 'size' must be bigger than 0")
+        return LinqSequence.from_generator(inner, self, size)
+
     # Projection
+
     @overload
     def select(self, selector: Callable[[T], TResult]) -> "LinqSequence[TResult]":
         """要素の変換を行います。
